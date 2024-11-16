@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
 const Single = () => {
-
   const [inputPattern, setInputPattern] = useState("");
   const [dictionary, setDictionary] = useState("big");
   const [results, setResults] = useState([]);
@@ -79,7 +78,6 @@ const Single = () => {
     }
   };
 
-
   return (
     <div>
       {/* Header Section */}
@@ -107,26 +105,36 @@ const Single = () => {
           <b>Examples:</b> <code>11.E</code> would match `ooze` and{" "}
           <code>112.2</code> would match `llama``.
           <form onSubmit={handleSubmit}>
+            <div>
+              {[...Array(15)].map((_, index) => (
+                <input
+                  key={index}
+                  name={`l${index + 1}`}
+                  id={`l${index + 1}`}
+                  className="textbox"
+                  maxLength="1"
+                  type="text"
+                />
+              ))}
+              <input className="button" style={{ visibility: "hidden" }} />
+            </div>
+            <hr />
+            <div>
+
+           
+            Dictionary 
+            <select onChange={handleDictionaryChange} name="dict" id="dict">
+              <option value="big">Big (260k words)</option>
+              <option value="original">Original (115k words)</option>
+              <option value="pocket">Pocket (20k words)</option>
+            </select>
+            <input type="submit" className="button" value="submit" />
+             </div>
+          </form>
+
+          <hr />
+          <p>Solutions for <b> {inputPattern} </b></p>   
           <div>
-            {[...Array(15)].map((_, index) => (
-              <input
-                key={index}
-                id={`l${index + 1}`}
-                className="textbox"
-                maxLength="1"
-                onChange={handleInputChange}
-              />
-            ))}
-          </div>
-          <select onChange={handleDictionaryChange}>
-            <option value="big">Big (260k words)</option>
-            <option value="original">Original (115k words)</option>
-            <option value="pocket">Pocket (20k words)</option>
-          </select>
-          <button type="submit" className="button">Submit</button>
-        </form>
-        <p>Solutions for <b> {inputPattern} </b></p>
-        <div>
           <h3>Results:</h3>
           <ul>
             {results.map((result, index) => (
@@ -135,7 +143,7 @@ const Single = () => {
           </ul>
         </div>
           <hr />
-
+          
           <b>Longer example:</b>
           <img src="assets/example.png" alt="How to solve codewords" /> is
           entered as <b>..A122.1R</b>
