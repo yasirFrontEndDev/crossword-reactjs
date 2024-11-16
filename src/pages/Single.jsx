@@ -7,7 +7,7 @@ const Single = () => {
   const [dictionary, setDictionary] = useState("big");
   const [results, setResults] = useState([]);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = () => {
     setInputPattern(
       Array.from({ length: 15 })
         .map((_, i) => document.getElementById(`l${i + 1}`).value)
@@ -21,23 +21,64 @@ const Single = () => {
 
   const fetchDictionary = async () => {
     const response = await fetch(`/assets/${dictionary}.txt`);
-    console.log(response);
     const text = await response.text();
-    return text.split("\n");
+    return text.split("\n").map((word) => word.trim());
   };
+
+  const convertToRegex = (pattern) => {
+    let regexPattern = "";
+    let i = 0;
+  
+    while (i < pattern.length) {
+      const char = pattern[i];
+  
+      if (char === "." || char === "?") {
+        // Any single character for unknown letter
+        regexPattern += "\\w";
+      } else if (/\d/.test(char)) {
+        // Handle repeated unknown characters (e.g., "11" means 11 same unknown letters)
+        let numRepeat = "";
+        while (i < pattern.length && /\d/.test(pattern[i])) {
+          numRepeat += pattern[i];
+          i++;
+        }
+        regexPattern += `\\w{${numRepeat}}`; // Match exactly n repeated characters
+        continue; // Skip incrementing i here since it's already done in the inner loop
+      } else if (/[A-Za-z]/.test(char)) {
+        // Specific letter
+        regexPattern += char;
+      }
+      
+      i++;
+    }
+  
+    return regexPattern;
+  };
+  
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const regexPattern = inputPattern
-      .replace(/\./g, "\\w") // Replace . with any letter.
-      .replace(/\d/g, (match) => `\\w{${match}}`); // Replace numbers with repeated groups.
+    if (!inputPattern) {
+      setResults(["Please enter a valid pattern."]);
+      return;
+    }
 
-    const words = await fetchDictionary();
-    const matchingWords = words.filter((word) => new RegExp(`^${regexPattern}$`).test(word));
-
-    setResults(matchingWords);
+    const regexPattern = convertToRegex(inputPattern);
+    const regex = new RegExp(`^${regexPattern}$`);
+    console.log("Regex Pattern:", regexPattern);
+    try {
+      const words = await fetchDictionary();
+      const matchingWords = words.filter((word) => regex.test(word));
+      console.log("Dictionary Words:", words);
+      setResults(matchingWords.length ? matchingWords : ["No matches found."]);
+    } catch (error) {
+      console.error("Error fetching dictionary:", error);
+      setResults(["Error loading dictionary. Please try again later."]);
+    }
   };
+
 
   return (
     <div>
@@ -84,7 +125,7 @@ const Single = () => {
           </select>
           <button type="submit" className="button">Submit</button>
         </form>
-        <h1>Solutions for 11.E</h1>
+        <p>Solutions for <b> {inputPattern} </b></p>
         <div>
           <h3>Results:</h3>
           <ul>
