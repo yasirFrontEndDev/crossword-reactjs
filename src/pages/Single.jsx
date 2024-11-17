@@ -1,86 +1,84 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
 const Single = () => {
+  const [dictionary, setDictionary] = useState([]);
   const [inputPattern, setInputPattern] = useState("");
-  const [dictionary, setDictionary] = useState("big");
   const [results, setResults] = useState([]);
+  const [selectedDictionary, setSelectedDictionary] = useState("big");
+  const inputRefs = useRef([]);
 
-  const handleInputChange = () => {
-    setInputPattern(
-      Array.from({ length: 15 })
-        .map((_, i) => document.getElementById(`l${i + 1}`).value)
-        .join("")
-    );
+  // Handle input change and shift focus to next input field
+  const handleInputChange = (e, index) => {
+    if (e.target.value.length === 1 && index < inputRefs.current.length - 1) {
+      // Move focus to the next input
+      inputRefs.current[index + 1].focus();
+    }
   };
+  // Load dictionary data
+  useEffect(() => {
+    const loadDictionary = async () => {
+      try {
+        const response = await fetch(`/assets/dictionaries/${selectedDictionary}.txt`);
+        console.log(response);
+        const text = await response.text();
+        console.log(text);
+        setDictionary(text.split("\n").map((line) => line.trim().toLowerCase()));
+      } catch (error) {
+        console.error("Error loading dictionary:", error.message);
+      }
+    };
+    loadDictionary();
+  }, [selectedDictionary]);
 
-  const handleDictionaryChange = (e) => {
-    setDictionary(e.target.value);
-  };
-
-  const fetchDictionary = async () => {
-    const response = await fetch(`/assets/dictionaries/${dictionary}.txt`);
-    const text = await response.text();
-    return text.split("\n").map((word) => word.trim());
-  };
-
-  const convertToRegex = (pattern) => {
+  // Pattern matching logic
+  const findMatches = (pattern, dictionary) => {
+    const letterMapping = {};
     let regexPattern = "";
-    let i = 0;
-  
-    while (i < pattern.length) {
-      const char = pattern[i];
-  
-      if (char === "." || char === "?") {
-        // Any single character for unknown letter
-        regexPattern += "\\w";
-      } else if (/\d/.test(char)) {
-        // Handle repeated unknown characters (e.g., "11" means 11 same unknown letters)
-        let numRepeat = "";
-        while (i < pattern.length && /\d/.test(pattern[i])) {
-          numRepeat += pattern[i];
-          i++;
+
+    for (const char of pattern) {
+      if (/\d/.test(char)) {
+        if (!letterMapping[char]) {
+          letterMapping[char] = `(?<group${char}>.)`;
+          regexPattern += letterMapping[char];
+        } else {
+          regexPattern += `\\k<group${char}>`;
         }
-        regexPattern += `\\w{${numRepeat}}`; // Match exactly n repeated characters
-        continue; // Skip incrementing i here since it's already done in the inner loop
-      } else if (/[A-Za-z]/.test(char)) {
-        // Specific letter
+      } else if (char === "." || char === "?") {
+        regexPattern += ".";
+      } else {
         regexPattern += char;
       }
-      
-      i++;
     }
-  
-    return regexPattern;
+
+    regexPattern = `^${regexPattern}$`;
+    const regex = new RegExp(regexPattern, "i");
+    return dictionary.filter((word) => regex.test(word));
   };
-  
 
-
-  const handleSubmit = async (e) => {
+  // Handle form submission
+  const handleSubmit = (e) => {
     e.preventDefault();
+    const pattern = Array.from(e.target.elements)
+      .filter((el) => el.type === "text" && el.value)
+      .map((el) => el.value)
+      .join("");
+    setInputPattern(pattern);
+    console.log(pattern);
+    
+    const matches = findMatches(pattern, dictionary);
+    setResults(matches);
+    console.log(matches);
+    
+  };
 
-    if (!inputPattern) {
-      setResults(["Please enter a valid pattern."]);
-      return;
-    }
-
-    const regexPattern = convertToRegex(inputPattern);
-    const regex = new RegExp(`^${regexPattern}$`);
-    console.log("Regex Pattern:", regexPattern);
-    try {
-      const words = await fetchDictionary();
-      const matchingWords = words.filter((word) => regex.test(word));
-      console.log("Dictionary Words:", words);
-      setResults(matchingWords.length ? matchingWords : ["No matches found."]);
-    } catch (error) {
-      console.error("Error fetching dictionary:", error);
-      setResults(["Error loading dictionary. Please try again later."]);
-    }
+  // Handle dictionary selection
+  const handleDictionaryChange = (e) => {
+    setSelectedDictionary(e.target.value);
   };
 
   return (
     <div>
-      {/* Header Section */}
       <div className="headerMain">
         <Link to="/">
           <img src="assets/codeword_solver.jpg" alt="Best Codeword Solver" />
@@ -88,12 +86,10 @@ const Single = () => {
         </Link>
       </div>
 
-      {/* Main Content */}
       <div className="wrapperMain">
         <main>
           <div className="gamelinks">
-            <Link to="/">Single</Link> |{" "}
-            <Link to="/multi">Multiple</Link>
+            <Link to="/">Single</Link> | <Link to="/multi">Multiple</Link>
             <br />
             <br />
           </div>
@@ -103,7 +99,7 @@ const Single = () => {
           numbers for <i>repeated</i> unknown letters.
           <br />
           <b>Examples:</b> <code>11.E</code> would match `ooze` and{" "}
-          <code>112.2</code> would match `llama``.
+          <code>112.2</code> would match `llama`.
           <form onSubmit={handleSubmit}>
             <div>
               {[...Array(15)].map((_, index) => (
@@ -114,36 +110,37 @@ const Single = () => {
                   className="textbox"
                   maxLength="1"
                   type="text"
+                  ref={(el) => (inputRefs.current[index] = el)} // Assign ref
+                  onChange={(e) => handleInputChange(e, index)}
                 />
               ))}
               <input className="button" style={{ visibility: "hidden" }} />
             </div>
             <hr />
             <div>
-
-           
-            Dictionary 
-            <select onChange={handleDictionaryChange} name="dict" id="dict">
-              <option value="big">Big (260k words)</option>
-              <option value="original">Original (115k words)</option>
-              <option value="pocket">Pocket (20k words)</option>
-            </select>
-            <input type="submit" className="button" value="submit" />
-             </div>
+              Dictionary{" "}
+              <select onChange={handleDictionaryChange} name="dict" id="dict">
+                <option value="big">Big (260k words)</option>
+                <option value="original">Original (115k words)</option>
+                <option value="pocket">Pocket (20k words)</option>
+              </select>
+              <input type="submit" className="button" value="submit" />
+            </div>
           </form>
 
           <hr />
-          <p>Solutions for <b> {inputPattern} </b></p>   
+          <p>
+            Solutions for <b>{inputPattern}</b>
+          </p>
           <div>
-          <h3>Results:</h3>
-          <ul>
-            {results.map((result, index) => (
-              <li key={index}>{result}</li>
-            ))}
-          </ul>
-        </div>
+            <h3>Results:</h3>
+            <ul>
+              {results.map((result, index) => (
+                <li key={index}>{result}</li>
+              ))}
+            </ul>
+          </div>
           <hr />
-          
           <b>Longer example:</b>
           <img src="assets/example.png" alt="How to solve codewords" /> is
           entered as <b>..A122.1R</b>
@@ -167,7 +164,7 @@ const Single = () => {
               </li>
               <li>
                 Thus we enter <b>..A122.1R</b> and get the only word that
-                matches the pattern: <b>`chauffeur.</b>
+                matches the pattern: <b>chauffeur.</b>
               </li>
             </ul>
           </span>
@@ -176,7 +173,6 @@ const Single = () => {
         </main>
       </div>
 
-      {/* Footer Section */}
       <footer className="footerMain">
         <Link to="/privacy">Privacy Policy</Link> |{" "}
         <a href="mailto:mythomasgames@gmail.com">Contact</a>
