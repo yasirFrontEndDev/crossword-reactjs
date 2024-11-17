@@ -19,7 +19,7 @@ const Single = () => {
   };
 
   const fetchDictionary = async () => {
-    const response = await fetch(`/assets/${dictionary}.txt`);
+    const response = await fetch(`/assets/dictionaries/${dictionary}.txt`);
     const text = await response.text();
     return text.split("\n").map((word) => word.trim());
   };
